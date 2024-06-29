@@ -77,30 +77,30 @@ mostrar_sitios() {
 # Función para analizar los sitios web con wafw00f
 analizar_con_wafw00f() {
     for sitio in "${sitios[@]}"; do
-        echo "Analizando $sitio con wafw00f..."
-        wafw00f $sitio
+        echo "Analizando $sitio con wafw00f..." >> STDOUT.log 2>> STDERR.log
+        wafw00f $sitio >> STDOUT.log 2>> STDERR.log
     done
 }
 
 # Función para analizar puertos abiertos con nmap
 analizar_con_nmap() {
     for sitio in "${sitios[@]}"; do
-        echo "Analizando puertos abiertos en $sitio con nmap..."
-        nmap -Pn $sitio
+        echo "Analizando puertos abiertos en $sitio con nmap..." >> STDOUT.log 2>> STDERR.log
+        nmap -Pn $sitio >> STDOUT.log 2>> STDERR.log
     done
 }
 
 # Función para enviar URLs a URLScan.io
 enviar_a_urlscan() {
     for sitio in "${sitios[@]}"; do
-        echo "Enviando $sitio a URLScan.io..."
+        echo "Enviando $sitio a URLScan.io..." >> STDOUT.log 2>> STDERR.log
         response=$(curl -s --request POST --url 'https://urlscan.io/api/v1/scan/' \
         --header "Content-Type: application/json" \
         --header "API-Key: $API_KEY" \
         --data "{\"url\": \"$sitio\", \"customagent\": \"US\"}")
         uuid=$(echo $response | jq -r '.uuid')
         if [ "$uuid" != "null" ]; then
-            echo "UUID de URLScan.io para $sitio: $uuid"
+            echo "UUID de URLScan.io para $sitio: $uuid" >> STDOUT.log 2>> STDERR.log
             uuid_por_sitio["$sitio"]=$uuid
         else
             echo "Error al enviar $sitio a URLScan.io. Respuesta: $response"
@@ -112,11 +112,20 @@ enviar_a_urlscan() {
 obtener_resultados_urlscan() {
     for sitio in "${!uuid_por_sitio[@]}"; do
         uuid=${uuid_por_sitio[$sitio]}
-        echo "Obteniendo resultados de URLScan.io para $sitio (UUID: $uuid)..."
+        echo "Obteniendo resultados de URLScan.io para $sitio (UUID: $uuid)..." >> STDOUT.log 2>> STDERR.log
         response=$(curl -s --request GET --url "https://urlscan.io/api/v1/result/$uuid/" \
         --header "API-Key: $API_KEY")
-        echo "Resultado de URLScan.io para $sitio (UUID: $uuid): $response"
+        echo "Resultado de URLScan.io para $sitio (UUID: $uuid): $response" >> STDOUT.log 2>> STDERR.log
     done
+}
+
+# Función para leer log de errores
+leer_log_errores() {
+    if [[ -f STDERR.log ]]; then
+        cat STDERR.log
+    else
+        echo "No existe el archivo de log de errores."
+    fi
 }
 
 # Mostrar todos los sitios web
