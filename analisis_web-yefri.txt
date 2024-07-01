@@ -1,0 +1,164 @@
+#!/bin/bash
+
+# Define tu clave de API de URLScan.io aquí
+API_KEY="42443d63-089d-4f2e-9d18-b8ffd1f83d15"
+
+# Definir las variables para cada sitio web en un arreglo
+sitios=("irsi.education" "urlscan.io")
+
+# Declarar un arreglo asociativo para almacenar los UUIDs de URLScan.io asociados a cada sitio
+declare -A uuid_por_sitio
+
+validar_comandos() {
+    {
+        local comandos=("curl" "jq" "nmap" "wafw00f")
+        for cmd in "${comandos[@]}"; do
+            if ! command -v $cmd &> /dev/null; then
+                read -p "El comando $cmd no está instalado. ¿Desea instalarlo? (s/n): " respuesta
+                if [[ $respuesta == "s" || $respuesta == "S" ]]; then
+                    sudo apt-get install -y $cmd
+                else
+                    echo "El comando $cmd es necesario para ejecutar el script. Saliendo."
+                    exit 1
+                fi
+            else
+                echo "El comando $cmd ya está instalado."
+            fi
+        done
+    } >> STDOUT.log 2>> STDERR.log
+}
+
+# Función para leer el log de errores
+leer_log_errores() {
+    {
+        if [[ -f STDERR.log ]]; then
+            cat STDERR.log
+        else
+            echo "No existe el archivo STDERR.log"
+        fi
+    }
+}
+
+# Función para mostrar los sitios web
+mostrar_sitios() {
+    {
+        for sitio in "${sitios[@]}"; do
+            echo "Sitio web: $sitio"
+        done
+    }
+}
+# Función para analizar los sitios web con wafw00f
+analizar_con_wafw00f() {
+    {
+        for sitio in "${sitios[@]}"; do
+            echo "Analizando $sitio con wafw00f..."
+            wafw00f $sitio
+        done
+    } >> STDOUT.log 2>> STDERR.log
+}
+
+# Función para analizar puertos abiertos con nmap
+analizar_con_nmap() {
+    {
+        for sitio in "${sitios[@]}"; do
+            echo "Analizando puertos abiertos en $sitio con nmap..."
+            nmap -Pn $sitio
+        done
+    } >> STDOUT.log 2>> STDERR.log
+}
+
+# Función para enviar URLs a URLScan.io
+enviar_a_urlscan() {
+    {
+       for sitio in "${sitios[@]}"; do
+        	echo "Enviando $sitio a URLScan.io..."
+        	response=$(curl -s --request POST --url 'https://urlscan.io/api/v1/scan/' \
+        	--header "Content-Type: application/json" \
+        	--header "API-Key: $API_KEY" \
+        	--data "{\"url\": \"$sitio\", \"customagent\": \"US\"}")
+        	uuid=$(echo $response | jq -r '.uuid')
+        	if [ "$uuid" != "null" ]; then
+            		echo "UUID de URLScan.io para $sitio: $uuid"
+            		uuid_por_sitio["$sitio"]=$uuid
+        	else
+            		echo "Error al enviar $sitio a URLScan.io. Respuesta: $response"
+        	fi
+    	done
+    } >> STDOUT.log 2>> STDERR.log
+}
+
+# Función para obtener resultados de URLScan.io
+obtener_resultados_urlscan() {
+    {
+        for sitio in "${!uuid_por_sitio[@]}"; do
+        	uuid=${uuid_por_sitio[$sitio]}
+        	echo "Obteniendo resultados de URLScan.io para $sitio (UUID: $uuid)..."
+        	response=$(curl -s --request GET --url "https://urlscan.io/api/v1/result/$uuid/" \
+        	--header "API-Key: $API_KEY")
+        	echo "Resultado de URLScan.io para $sitio (UUID: $uuid): $response"
+    	done
+    } >> STDOUT.log 2>> STDERR.log
+}
+# Menú de opciones
+menu() {
+    {
+        while true; do
+            echo "Seleccione una opción:"
+            echo "1) Validar comandos"
+            echo "2) Mostrar sitios web"
+            echo "3) Analizar sitios con wafw00f"
+            echo "4) Analizar puertos con nmap"
+            echo "5) Enviar URLs a URLScan.io"
+            echo "6) Obtener resultados de URLScan.io"
+            echo "7) Leer log de errores"
+            echo "8) Salir"
+            read -p "Ingrese una opción: " opcion
+            case $opcion in
+                1)
+		    echo "Validando la existencia de las librerias"
+                    validar_comandos
+                    ;;
+                2)
+                    echo "Mostrando todos los sitios web"
+                    mostrar_sitios
+                    ;;
+                3)
+                    echo "Usando el ciclo for para analizar con wafw00f"
+                    analizar_con_wafw00f
+                    ;;
+                4)
+                    echo "Usando el ciclo for para analizar puertos con nmap"
+                    analizar_con_nmap
+                    ;;
+                5)
+                    echo "Enviando URLs a URLScan.io"
+                    enviar_a_urlscan
+                    ;;
+                6)
+                    echo "Obteniendo resultados de URLScan.io"
+                    obtener_resultados_urlscan
+                    ;;
+                7)
+                    leer_log_errores
+                    ;;
+                8)
+                    echo "Saliendo..."
+                    break
+                    ;;
+                *)
+                    echo "Opción no válida. Intente nuevamente."
+                    ;;
+            esac
+            echo "Presione Enter para volver al menú principal."
+            read
+        done
+    }
+}
+
+# Ejecutar validación de comandos al inicio
+validar_comandos
+
+# Mostrar el menú
+menu
+
+echo "Fin del Script"
