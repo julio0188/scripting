@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define tu clave de API de URLScan.io aquí
-API_KEY="42443d63-089d-4f2e-9d18-b8ffd1f83d15"
+API_KEY=""
 
 # Definir las variables para cada sitio web en un arreglo
 sitios=("irsi.education" "urlscan.io")
